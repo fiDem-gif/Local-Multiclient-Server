@@ -1,10 +1,13 @@
 import java.io.*;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Collections;
 
 public class ClientHandler implements Runnable{
 
-    public static ArrayList<ClientHandler> clientHandlers = new ArrayList<>();
+    public static List<ClientHandler> clientHandlers =
+            Collections.synchronizedList(new ArrayList<>());
     private Socket socket;
     private BufferedWriter bufferedWriter;
     private BufferedReader bufferedReader;
@@ -19,7 +22,6 @@ public class ClientHandler implements Runnable{
             this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             this.clientUsername = bufferedReader.readLine();
             clientHandlers.add(this);
-            broadcastMessage("SERVER: " + clientUsername + "  Has been connected" );
 
         }catch (IOException e) {
             closeEverything(socket, bufferedReader, bufferedWriter);
@@ -27,6 +29,7 @@ public class ClientHandler implements Runnable{
     }
     @Override
     public void run() {
+        broadcastMessage("SERVER: " + clientUsername + "  Has been connected" );
         String messageFromClient;
 
         while(socket.isConnected()){
@@ -42,23 +45,27 @@ public class ClientHandler implements Runnable{
     }
 
     public void broadcastMessage (String messageToSend) {
-        for (ClientHandler clientHandler : clientHandlers) {
-            try {
-                if (!clientHandler.clientUsername.equals(clientUsername)) {
-                    clientHandler.bufferedWriter.write(messageToSend);
-                    clientHandler.bufferedWriter.newLine();
-                    clientHandler.bufferedWriter.flush();
+        synchronized (clientHandlers) {
+            for (ClientHandler clientHandler : clientHandlers) {
+                try {
+                    if (!clientHandler.clientUsername.equals(clientUsername)) {
+                        clientHandler.bufferedWriter.write(messageToSend);
+                        clientHandler.bufferedWriter.newLine();
+                        clientHandler.bufferedWriter.flush();
+                    }
+                } catch (IOException e) {
+                    closeEverything(socket, bufferedReader, bufferedWriter);
                 }
-            } catch(IOException e){
-                closeEverything(socket,bufferedReader,bufferedWriter);
             }
         }
     }
-
     public void removeClientHandler() {
-        clientHandlers.remove( this);
-        broadcastMessage("SERVER: " + clientUsername + " Has left the char");
+        synchronized (clientHandlers) {
+            clientHandlers.remove(this);
+        }
+        broadcastMessage("SERVER: " + clientUsername + " Has left the chat");
     }
+
 
     public void closeEverything(Socket socket, BufferedReader bufferedReader, BufferedWriter bufferedWriter){
         removeClientHandler();
@@ -68,6 +75,9 @@ public class ClientHandler implements Runnable{
             }
             if(bufferedWriter != null){
                bufferedWriter.close();
+            }
+            if(socket != null){
+                socket.close();
             }
         }catch(IOException e){
             e.printStackTrace();

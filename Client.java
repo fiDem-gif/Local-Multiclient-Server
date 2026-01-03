@@ -1,4 +1,3 @@
-import javax.imageio.IIOException;
 import java.io.*;
 import java.net.Socket;
 import java.util.Scanner;
@@ -53,6 +52,7 @@ public class Client {
 
                     }catch(IOException e){
                         closeEverything(socket, bufferedWriter, bufferedReader);
+                        break;
                     }
                 }
             }
@@ -67,6 +67,9 @@ public class Client {
             }
             if(bufferedWriter != null){
                 bufferedWriter.close();
+            }
+            if(socket != null){
+                socket.close();
             }
         }catch(IOException e){
             e.printStackTrace();
